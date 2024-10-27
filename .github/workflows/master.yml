@@ -7,20 +7,50 @@ on:
 jobs:
   build_a380x:
     name: Build and deploy A380X
+    # Prevent running this on forks
     runs-on: ubuntu-latest
     env:
       FBW_PRODUCTION_BUILD: 1
-      MASTER_PRE_RELEASE_ID: 66067756
-      MASTER_PRE_RELEASE_TAG: assets/master
-      MASTER_ZIP_NAME: A380X-master.7z
-      VMASTER_PRE_RELEASE_ID: 32243965
-      VMASTER_PRE_RELEASE_TAG: vmaster
-      BUILD_DIR_NAME: master-a380x
-      AIRCRAFT_PROJECT_PREFIX: a380x
-      AIRCRAFT_VARIANT: a380-842
+      A32NX_INSTRUMENTS_BUILD_WORKERS: 2
+      BUILD_DIR_NAME: a380x-experimental-a32nx
+      AIRCRAFT_PROJECT_PREFIX: a32nx
+      AIRCRAFT_VARIANT: a320-251n
     steps:
+      - name: Maximize build space
+        uses: AdityaGarg8/remove-unwanted-software@v4.1
+        with:
+          remove-android: 'true'
+          remove-dotnet: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+          remove-large-packages: 'true'
+          remove-cached-tools: 'true'
+      - name: Force even more disk space
+        run: |
+          sudo rm -rf /usr/local/julia1.11.0
+          sudo rm -rf /usr/share/swift
+          sudo rm -rf /opt/microsoft/msedge
+          sudo rm -rf /usr/local/share/chromium
+          sudo rm -rf /usr/share/miniconda
+          sudo rm -rf /opt/pipx
+          sudo rm -rf /usr/lib/heroku
+          sudo rm -rf /usr/share/kotlinc
+          sudo rm -rf /usr/local/aws-cli
+          sudo rm -rf /usr/local/share/powershell
+          sudo rm -rf /usr/lib/jvm
+          sudo rm -rf /usr/local/sqlpackage
+          sudo rm -rf /usr/share/gradle-8.10.2
+          sudo rm -rf /usr/lib/python3
+          sudo rm -rf /usr/lib/python3.10
+          sudo rm -rf /usr/lib/mono
+          sudo npm uninstall -g netlify-cli --save
+          sudo npm uninstall -g parcel --save
+          df -h
       - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.LARGE_FILES_TEMPORARY_PAT }}
       - name: Set BUILT_DATE_TIME
         run: echo "BUILT_DATE_TIME=$(date -u -Iseconds)" >> $GITHUB_ENV
       - name: Create .env file
@@ -30,8 +60,8 @@ jobs:
           echo CLIENT_SECRET=\"${{ secrets.NAVIGRAPH_CLIENT_SECRET_A380X }}\" >> fbw-a380x/.env
           echo CHARTFOX_SECRET=\"${{ secrets.CHARTFOX_SECRET }}\" >> fbw-a380x/.env
           echo SENTRY_DSN=\"${{ secrets.SENTRY_DSN }}\" >> fbw-a380x/.env
-          echo AIRCRAFT_PROJECT_PREFIX=\"${{ env.AIRCRAFT_PROJECT_PREFIX }}\" >> fbw-a380x/.env
-          echo AIRCRAFT_VARIANT=\"${{ env.AIRCRAFT_VARIANT }}\" >> fbw-a380x/.env
+          echo AIRCRAFT_PROJECT_PREFIX=${{ env.AIRCRAFT_PROJECT_PREFIX }} >> fbw-a380x/.env
+          echo AIRCRAFT_VARIANT=${{ env.AIRCRAFT_VARIANT }} >> fbw-a380x/.env
           echo BUILD_DIR_NAME=${{ env.BUILD_DIR_NAME }} >> .env
           echo LOCALAZY_READ_KEY=${{ secrets.LOCALAZY_READ_KEY }} >> .env
           echo VITE_BUILD=false >> .env
@@ -43,18 +73,23 @@ jobs:
           ./scripts/dev-env/run.sh ./scripts/build_a380x.sh --no-tty -j 4
           rm -rf fbw-a380x/src
           docker system prune -af
-      - name: Build ZIP files
+      - name: Build Fragmenter modules
         run: |
           df -h
           node ./scripts/fragment_a380x.js
           cp ./fbw-a380x/out/build-modules/modules.json ./fbw-a380x/out/flybywire-aircraft-a380-842/install.json
           node ./scripts/install-source_a380x.js
+          df -h
+      - name: Build Standalone Download files
+        run: |
           mkdir ./${{ env.BUILD_DIR_NAME }}
           cd ./fbw-a380x/out/
-          7z a -t7z -m0=lzma2 -mx=7 ../../${{ env.BUILD_DIR_NAME }}/${{ env.MASTER_ZIP_NAME }} ./flybywire-aircraft-a380-842/
+          rm -rf build-modules
+          7z a -t7z -m0=lzma2 -mx=7 -v2g ../../${{ env.BUILD_DIR_NAME }}/${{ env.STANDALONE_ZIP_NAME }} ./flybywire-aircraft-a380-842/
           cd ../../
+          df -h
       - name: Upload ZIP to GitHub Artifacts
-        uses: actions/upload-artifact@v4.4.3
+        uses: actions/download-artifact@v4.1.8
         with:
-          name: ${{ env.MASTER_ZIP_NAME }}
+          name: ${{ env.STANDALONE_ZIP_NAME }}
           path: ./${{ env.BUILD_DIR_NAME }}/${{ env.MASTER_ZIP_NAME }}
