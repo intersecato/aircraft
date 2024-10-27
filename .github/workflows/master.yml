@@ -11,10 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       FBW_PRODUCTION_BUILD: 1
-      A32NX_INSTRUMENTS_BUILD_WORKERS: 2
-      BUILD_DIR_NAME: a380x-experimental-a32nx
-      AIRCRAFT_PROJECT_PREFIX: a32nx
-      AIRCRAFT_VARIANT: a320-251n
+      BUILD_DIR_NAME: a380x-experimental-a380x
+      AIRCRAFT_PROJECT_PREFIX: a380x
+      STANDALONE_ZIP_NAME: A380X-exp.7z
+      AIRCRAFT_VARIANT: a380-842
     steps:
       - name: Maximize build space
         uses: AdityaGarg8/remove-unwanted-software@v4.1
